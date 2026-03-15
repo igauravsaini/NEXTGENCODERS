@@ -1,9 +1,0 @@
-fastapi
-uvicorn
-pandas
-numpy
-xarray
-netCDF4
-scikit-learn
-python-multipart
-pydeck==0.8.0
