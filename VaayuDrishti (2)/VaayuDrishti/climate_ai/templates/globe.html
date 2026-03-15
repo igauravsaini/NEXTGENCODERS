@@ -1,0 +1,356 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8">
+    <title>VaayuDrishti – 3D Planetary Analytics</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
+    <script src="//unpkg.com/globe.gl"></script>
+    <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css" rel="stylesheet">
+    <style>
+        @import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;600;700;900&display=swap');
+        
+        body {
+            background: #010108;
+            color: #ffffff;
+            margin: 0;
+            overflow: hidden;
+            font-family: 'Inter', sans-serif;
+        }
+
+        #globe-viz {
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 100vw;
+            height: 100vh;
+            z-index: 10;
+        }
+
+        .overlay-ui {
+            position: absolute;
+            z-index: 100;
+        }
+
+        .globe-btn {
+            background: rgba(10, 10, 15, 0.6);
+            border: 1px solid rgba(0, 229, 160, 0.2);
+            color: #888;
+            padding: 10px 18px;
+            border-radius: 8px;
+            font-size: 13px;
+            cursor: pointer;
+            text-align: left;
+            transition: all 0.2s;
+            backdrop-filter: blur(8px);
+            display: block;
+            width: 100%;
+            margin-bottom: 8px;
+        }
+
+        .globe-btn:hover {
+            border-color: rgba(0, 229, 160, 0.5);
+            color: #ccc;
+        }
+
+        .globe-btn.active {
+            background: rgba(0, 229, 160, 0.15);
+            border-color: #00E5A0;
+            color: #00E5A0;
+            box-shadow: 0 0 15px rgba(0, 229, 160, 0.2);
+        }
+
+        .panel-glass {
+            background: rgba(14, 14, 18, 0.75);
+            border: 1px solid rgba(255, 255, 255, 0.1);
+            border-radius: 12px;
+            backdrop-filter: blur(12px);
+            padding: 20px;
+        }
+
+        /* Loading Overlay */
+        #loader {
+            position: absolute;
+            inset: 0;
+            background: #010108;
+            z-index: 999;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            flex-direction: column;
+            transition: opacity 0.5s;
+        }
+        
+        .spinner {
+            width: 50px;
+            height: 50px;
+            border: 3px solid rgba(0, 229, 160, 0.2);
+            border-top-color: #00E5A0;
+            border-radius: 50%;
+            animation: spin 1s linear infinite;
+        }
+        
+        @keyframes spin { 100% { transform: rotate(360deg); } }
+    </style>
+</head>
+
+<body>
+    <!-- LOADER -->
+    <div id="loader">
+        <div class="spinner"></div>
+        <div class="mt-6 text-sm text-[#00E5A0] tracking-[0.2em] uppercase font-bold text-center">
+            Initializing Planetary Engine<br>
+            <span class="text-xs text-gray-500 font-normal">Loading High-Res Earth Maps...</span>
+        </div>
+    </div>
+
+    <!-- 3D GLOBE CONTAINER -->
+    <div id="globe-viz"></div>
+
+    <!-- UI OVERLAYS -->
+    <div class="overlay-ui" style="top: 24px; left: 32px;">
+        <button onclick="window.location.href='/'" class="panel-glass hover:bg-white/10 text-white flex items-center gap-3 transition-colors mb-8 text-sm outline-none">
+            <i class="fas fa-arrow-left"></i> Back to Dashboard
+        </button>
+
+        <div style="width: 180px;">
+            <p class="text-[10px] text-gray-500 mb-3 font-bold uppercase tracking-[0.1em]">Metric Overlay</p>
+            <button class="globe-btn active" onclick="setOverlay('temp')" id="btn-temp">Temperature</button>
+            <button class="globe-btn" onclick="setOverlay('precip')" id="btn-precip">Rain</button>
+            <button class="globe-btn" onclick="setOverlay('wind')" id="btn-wind">Oxygen</button>
+            <button class="globe-btn" onclick="setOverlay('co2')" id="btn-co2">CO₂</button>
+        </div>
+    </div>
+
+    <div class="overlay-ui" style="bottom: 32px; left: 32px;">
+        <button class="globe-btn active w-auto inline-block" id="btn-rotate" onclick="toggleRotate()">
+            <i class="fas fa-play mr-2" id="rotate-icon"></i> Auto Rotate
+        </button>
+    </div>
+
+    <div class="overlay-ui panel-glass" style="bottom: 32px; right: 32px; width: 320px;">
+        <div class="flex justify-between mb-3 text-sm">
+            <span class="text-gray-400">Timeline Year:</span>
+            <span class="text-[#00E5A0] font-bold text-lg" id="year-val">2020</span>
+        </div>
+        <input type="range" class="w-full accent-[#00E5A0]" min="1980" max="2020" step="1" value="2020" id="year-slider" oninput="onYearChange(this.value)">
+    </div>
+
+    <div id="country-panel" class="overlay-ui panel-glass hidden" style="top: 24px; right: 32px; width: 300px;">
+        <div class="flex justify-between items-center mb-4">
+            <h4 class="text-[#00E5A0] text-lg font-bold flex items-center gap-2">
+                <i class="fas fa-globe-americas"></i> <span id="panel-country-name">Brazil</span>
+            </h4>
+            <button class="text-gray-500 hover:text-white" onclick="document.getElementById('country-panel').classList.add('hidden')">
+                <i class="fas fa-times"></i>
+            </button>
+        </div>
+        <p class="text-[11px] text-gray-400 mb-4 border-b border-white/10 pb-3">Planetary telemetry data snapshot.</p>
+        
+        <div class="space-y-3 text-sm">
+            <div class="flex justify-between border-b border-white/5 pb-2">
+                <span class="text-gray-400">Temperature</span>
+                <span class="text-[#00E5A0] font-semibold" id="panel-temp">24.9°C</span>
+            </div>
+            <div class="flex justify-between border-b border-white/5 pb-2">
+                <span class="text-gray-400">Risk Level</span>
+                <span class="text-orange-400 font-semibold" id="panel-risk">6/10</span>
+            </div>
+            <div class="flex justify-between border-b border-white/5 pb-2">
+                <span class="text-gray-400">CO₂ Output</span>
+                <span class="text-purple-400 font-semibold" id="panel-co2">620t</span>
+            </div>
+            <div class="flex justify-between border-b border-white/5 pb-2">
+                <span class="text-gray-400">Precipitation</span>
+                <span class="text-blue-400 font-semibold" id="panel-precip">1840mm</span>
+            </div>
+        </div>
+        <div class="mt-4 text-[10px] text-gray-500 italic text-right">
+            Calculated for Year: <span id="panel-year-label">2020</span>
+        </div>
+    </div>
+
+    <script>
+        let world, polygons;
+        let isRotating = true;
+        let currentOverlay = 'temp';
+        let currentYear = 2020;
+        
+        // Mock DB for countries
+        const countryDB = {
+            'India': { tempBase: 29.3, risk: 7, co2Base: 198, precipBase: 1150 },
+            'United States of America': { tempBase: 14.2, risk: 5, co2Base: 4850, precipBase: 755 },
+            'Brazil': { tempBase: 24.9, risk: 6, co2Base: 620, precipBase: 1840 },
+            'Australia': { tempBase: 21.4, risk: 4, co2Base: 434, precipBase: 534 },
+            'China': { tempBase: 14.3, risk: 8, co2Base: 11000, precipBase: 645 },
+            'Canada': { tempBase: -5.3, risk: 2, co2Base: 550, precipBase: 535 },
+            'Russia': { tempBase: -5.1, risk: 3, co2Base: 1700, precipBase: 460 },
+            'South Africa': { tempBase: 17.5, risk: 5, co2Base: 450, precipBase: 464 },
+        };
+
+        // Initialize Globe
+        async function initGlobe() {
+            // Load custom mapping info
+            const countriesData = await fetch('https://raw.githubusercontent.com/vasturiano/globe.gl/master/example/datasets/ne_110m_admin_0_countries.geojson').then(res => res.json());
+            polygons = countriesData.features;
+
+            world = Globe()(document.getElementById('globe-viz'))
+                .globeImageUrl('//unpkg.com/three-globe/example/img/earth-dark.jpg')
+                .bumpImageUrl('//unpkg.com/three-globe/example/img/earth-topology.png')
+                .backgroundImageUrl('//unpkg.com/three-globe/example/img/night-sky.png')
+                
+                // Polygons config
+                .polygonsData(polygons)
+                .polygonAltitude(0.01)
+                .polygonCapColor(feat => getCountryColor(feat, currentOverlay))
+                .polygonSideColor(() => 'rgba(0, 0, 0, 0)')
+                .polygonStrokeColor(() => 'rgba(0, 229, 160, 0.4)')
+                
+                .onPolygonHover(hoverD => {
+                    world.polygonAltitude(d => d === hoverD ? 0.06 : 0.01)
+                         .polygonCapColor(d => d === hoverD ? highlightColor() : getCountryColor(d, currentOverlay));
+                    
+                    document.body.style.cursor = hoverD ? 'pointer' : 'default';
+                })
+                .onPolygonClick(d => {
+                    showCountryDetails(d);
+                    
+                    // Smooth transition to clicked country
+                    const bbox = d.bbox; 
+                    if(bbox) {
+                        try {
+                            const centroidLat = (bbox[1] + bbox[3]) / 2;
+                            const centroidLng = (bbox[0] + bbox[2]) / 2;
+                            world.pointOfView({ lat: centroidLat, lng: centroidLng, altitude: 1.5 }, 1000);
+                        } catch(e) {}
+                    }
+                });
+
+            // Set Initial view
+            world.pointOfView({ lat: 20, lng: 0, altitude: 2.2 });
+            
+            // Auto-rotate setup
+            world.controls().autoRotate = true;
+            world.controls().autoRotateSpeed = 0.5;
+            
+            // Remove Loader
+            setTimeout(() => {
+                const loader = document.getElementById('loader');
+                loader.style.opacity = '0';
+                setTimeout(() => loader.style.display = 'none', 500);
+            }, 1000);
+        }
+
+        // Thematic styling logic
+        function getCountryColor(feat, metric) {
+            const name = feat.properties.ADMIN;
+            // Generate a fake value based on name length for demo purposes if not in DB
+            let valHash = (name.length * 7 + name.charCodeAt(0) * 13) % 100; 
+            
+            // Adjust factor by year
+            let yearFactor = ((currentYear - 1980) / 40); // 0 to 1
+            
+            if(metric === 'temp') {
+                // Return heat colors (blueish to red/yellow)
+                let heat = valHash / 100 + (yearFactor * 0.3); // Temps rise
+                heat = Math.min(1, heat);
+                return `hsla(${240 - (heat * 240)}, 80%, 45%, 0.6)`;
+            } else if (metric === 'precip') {
+                // Rain - blue variations
+                let wet = (valHash / 100) * (1 - yearFactor * 0.2); // slight drop in rain
+                return `hsla(210, ${60 + wet * 40}%, ${20 + wet * 30}%, 0.7)`;
+            } else if (metric === 'wind') {
+                // Oxygen - green to teal
+                let ox = (valHash / 100) * (1 - yearFactor * 0.3); // dropping oxygen mapping
+                return `hsla(160, ${50 + ox * 50}%, ${30 + ox * 30}%, 0.6)`;
+            } else if (metric === 'co2') {
+                // CO2 - dark purple/red smog
+                let co = (valHash / 100) + (yearFactor * 0.5); 
+                co = Math.min(1, co);
+                return `hsla(280, ${50 + co * 50}%, ${20 + co * 40}%, 0.7)`;
+            }
+            return 'rgba(0, 229, 160, 0.1)';
+        }
+
+        function highlightColor() {
+            return 'rgba(255, 255, 255, 0.4)';
+        }
+
+        // Overlay & Controls mapping
+        function setOverlay(type) {
+            currentOverlay = type;
+            document.querySelectorAll('.overlay-ui .globe-btn:not(#btn-rotate)').forEach(b => b.classList.remove('active'));
+            document.getElementById('btn-' + type).classList.add('active');
+            
+            // Re-evaluate colors
+            if(world) {
+                world.polygonCapColor(feat => getCountryColor(feat, currentOverlay));
+            }
+        }
+
+        function toggleRotate() {
+            isRotating = !isRotating;
+            const btn = document.getElementById('btn-rotate');
+            const icon = document.getElementById('rotate-icon');
+            
+            if (isRotating) {
+                btn.classList.add('active');
+                icon.className = 'fas fa-play mr-2';
+                world.controls().autoRotate = true;
+            } else {
+                btn.classList.remove('active');
+                icon.className = 'fas fa-pause mr-2';
+                world.controls().autoRotate = false;
+            }
+        }
+
+        function onYearChange(val) {
+            currentYear = parseInt(val);
+            document.getElementById('year-val').innerText = currentYear;
+            document.getElementById('panel-year-label').innerText = currentYear;
+            
+            // Re-evaluate colors to show temporal changes
+            if(world) {
+                world.polygonCapColor(feat => getCountryColor(feat, currentOverlay));
+            }
+        }
+
+        function showCountryDetails(feat) {
+            const name = feat.properties.ADMIN;
+            const dbRef = countryDB[name] || {
+                tempBase: 10 + (name.length % 20),
+                risk: (name.length % 10),
+                co2Base: name.length * 150,
+                precipBase: 400 + (name.length * 50)
+            };
+            
+            const yearFactorRange = (currentYear - 1980) / 40; // 0 to 1
+            
+            const tempStr = (dbRef.tempBase + (yearFactorRange * 2.5)).toFixed(1) + '°C';
+            const riskStr = Math.min(10, Math.round(dbRef.risk + (yearFactorRange * 2))) + '/10';
+            const co2Str = Math.round(dbRef.co2Base * (1 + yearFactorRange * 0.4)) + 't';
+            const precipStr = Math.round(dbRef.precipBase * (1 - yearFactorRange * 0.1)) + 'mm';
+            
+            document.getElementById('panel-country-name').innerText = name;
+            document.getElementById('panel-temp').innerText = tempStr;
+            document.getElementById('panel-risk').innerText = riskStr;
+            document.getElementById('panel-co2').innerText = co2Str;
+            document.getElementById('panel-precip').innerText = precipStr;
+            
+            document.getElementById('country-panel').classList.remove('hidden');
+        }
+
+        // Handle resize properly
+        window.addEventListener('resize', () => {
+            if(world) {
+                world.width(window.innerWidth).height(window.innerHeight);
+            }
+        });
+
+        // Start
+        initGlobe();
+
+    </script>
+</body>
+</html>

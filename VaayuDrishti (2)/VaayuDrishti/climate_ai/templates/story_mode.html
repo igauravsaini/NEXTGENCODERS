@@ -1,0 +1,681 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>VaayuDrishti — Kahani Mode (Story Mode)</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link href="https://fonts.googleapis.com/css2?family=Noto+Sans:wght@400;500;600;700;800;900&family=Noto+Sans+Devanagari:wght@400;600;700&display=swap" rel="stylesheet" />
+  <script src="https://unpkg.com/react@18/umd/react.production.min.js"></script>
+  <script src="https://unpkg.com/react-dom@18/umd/react-dom.production.min.js"></script>
+  <script src="https://unpkg.com/@babel/standalone/babel.min.js"></script>
+  <style>
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+    :root {
+      --accent: #00E5A0;
+      --accent-dim: rgba(0,229,160,0.12);
+      --accent-hover: #00FFB3;
+      --amber: #F5A623;
+      --red: #FF4C4C;
+      --blue: #4A9EFF;
+      --bg: #050510;
+      --bg-card: #0e0e1a;
+      --border: #1a1a2e;
+      --text: #f0f0f0;
+      --text-muted: #666;
+      --text-dim: #444;
+    }
+
+    html, body, #root {
+      height: 100%;
+      background: var(--bg);
+      color: var(--text);
+      font-family: 'Noto Sans', 'Noto Sans Devanagari', sans-serif;
+      -webkit-font-smoothing: antialiased;
+    }
+
+    /* ========= NAVBAR ========= */
+    .topbar {
+      position: fixed; top: 0; left: 0; right: 0; z-index: 200;
+      height: 60px;
+      display: flex; align-items: center; justify-content: space-between;
+      padding: 0 28px;
+      background: rgba(5, 5, 16, 0.85);
+      backdrop-filter: blur(16px);
+      border-bottom: 1px solid var(--border);
+    }
+    .topbar-brand {
+      display: flex; align-items: center; gap: 10px;
+      font-weight: 900; font-size: 16px; letter-spacing: -0.5px;
+      color: var(--accent); cursor: pointer;
+    }
+    .topbar-brand svg { filter: drop-shadow(0 0 8px var(--accent)); }
+    .topbar-badge {
+      font-size: 10px; font-weight: 700; text-transform: uppercase;
+      letter-spacing: 0.12em; color: var(--text-muted);
+      border: 1px solid var(--border); border-radius: 20px;
+      padding: 3px 10px;
+    }
+    .lang-toggle {
+      display: flex; gap: 6px;
+    }
+    .lang-btn {
+      background: transparent; border: 1px solid var(--border);
+      color: var(--text-muted); font-size: 11px; font-weight: 700;
+      padding: 5px 12px; border-radius: 20px; cursor: pointer;
+      transition: all 0.2s;
+    }
+    .lang-btn.active, .lang-btn:hover {
+      background: var(--accent-dim); border-color: var(--accent);
+      color: var(--accent);
+    }
+
+    /* ========= SPLASH SCREEN ========= */
+    .splash {
+      min-height: 100vh; display: flex; flex-direction: column;
+      align-items: center; justify-content: center; gap: 28px;
+      padding: 100px 20px 40px;
+      background: radial-gradient(ellipse at center top, #0d0d25 0%, var(--bg) 70%);
+    }
+    .splash-icon-wrap {
+      width: 110px; height: 110px; border-radius: 50%;
+      border: 2px solid var(--accent);
+      display: flex; align-items: center; justify-content: center;
+      background: rgba(0,229,160,0.05);
+      animation: pulse-ring 2s infinite;
+      box-shadow: 0 0 40px rgba(0,229,160,0.15);
+    }
+    .splash-title {
+      font-size: 32px; font-weight: 900; text-align: center; line-height: 1.2;
+    }
+    .splash-subtitle {
+      color: var(--text-muted); text-align: center;
+      max-width: 420px; line-height: 1.75; font-size: 14px;
+    }
+    .btn-start {
+      background: var(--accent); color: #000;
+      font-size: 16px; font-weight: 800;
+      padding: 14px 40px; border: none; border-radius: 50px;
+      cursor: pointer; transition: all 0.25s;
+      box-shadow: 0 0 24px rgba(0,229,160,0.3);
+      letter-spacing: 0.03em;
+    }
+    .btn-start:hover {
+      background: var(--accent-hover);
+      transform: translateY(-2px);
+      box-shadow: 0 8px 32px rgba(0,229,160,0.4);
+    }
+    .splash-steps-preview {
+      display: flex; gap: 12px; align-items: center;
+      margin-top: 8px;
+    }
+    .era-chip {
+      font-size: 10px; font-weight: 700; letter-spacing: 0.1em;
+      text-transform: uppercase; border: 1px solid var(--border);
+      border-radius: 20px; padding: 4px 12px; color: var(--text-muted);
+    }
+
+    /* ========= STORY OVERLAY ========= */
+    .story-overlay {
+      position: fixed; inset: 0;
+      background: rgba(5, 5, 16, 0.96);
+      display: flex; align-items: center; justify-content: center;
+      z-index: 300; padding: 20px;
+      animation: fadeIn 0.4s ease;
+    }
+    @keyframes fadeIn { from { opacity: 0 } to { opacity: 1 } }
+
+    .story-card {
+      background: var(--bg-card);
+      border: 1px solid var(--border);
+      border-radius: 24px;
+      padding: 36px 32px 28px;
+      max-width: 580px; width: 100%;
+      text-align: center;
+      box-shadow: 0 30px 80px rgba(0,0,0,0.7);
+      animation: slideUp 0.4s ease;
+    }
+    @keyframes slideUp {
+      from { transform: translateY(24px); opacity: 0; }
+      to { transform: translateY(0); opacity: 1; }
+    }
+
+    /* Step indicators */
+    .story-step-indicator {
+      display: flex; gap: 8px; justify-content: center; margin-bottom: 20px;
+    }
+    .story-dot {
+      width: 10px; height: 10px; border-radius: 50%;
+      background: #222; border: 1px solid #333;
+      transition: all 0.35s; cursor: pointer;
+    }
+    .story-dot.active {
+      background: var(--accent);
+      box-shadow: 0 0 10px rgba(0,229,160,0.5);
+      border-color: var(--accent);
+    }
+
+    /* Progress bar */
+    .story-progress {
+      height: 3px; background: #1a1a2e;
+      border-radius: 2px; margin-bottom: 24px; overflow: hidden;
+    }
+    .story-progress-fill {
+      height: 100%; border-radius: 2px;
+      transition: width 0.6s ease;
+    }
+
+    /* Era badge */
+    .story-era {
+      display: inline-block;
+      font-size: 10px; font-weight: 800; letter-spacing: 0.15em;
+      text-transform: uppercase; color: var(--text-muted);
+      border: 1px solid var(--border); padding: 4px 14px;
+      border-radius: 20px; margin-bottom: 14px;
+    }
+
+    /* Title */
+    .story-title {
+      font-size: 22px; font-weight: 800;
+      margin: 0 0 20px; line-height: 1.3;
+      transition: color 0.5s;
+    }
+
+    /* Visual globe */
+    .story-map-bg {
+      width: 100%; height: 170px; border-radius: 14px;
+      overflow: hidden; margin-bottom: 20px;
+      background: #050510;
+      border: 1px solid var(--border);
+    }
+    .story-map-inner {
+      width: 100%; height: 100%;
+      display: flex; align-items: center; justify-content: center;
+      position: relative;
+    }
+    .story-orb {
+      width: 90px; height: 90px; border-radius: 50%;
+      animation: pulse-ring 2s infinite;
+      transition: all 0.5s;
+    }
+    .story-temp-badge {
+      position: absolute; top: 10px; right: 12px;
+      font-size: 11px; font-weight: 800;
+      background: rgba(0,0,0,0.75);
+      padding: 3px 8px; border-radius: 6px;
+      letter-spacing: 0.03em;
+    }
+    .story-co2-badge {
+      position: absolute; bottom: 10px; left: 12px;
+      font-size: 11px; font-weight: 700; color: var(--text-muted);
+      background: rgba(0,0,0,0.7);
+      padding: 3px 8px; border-radius: 6px;
+    }
+
+    /* Text */
+    .story-text {
+      font-size: 14px; color: #bbb;
+      line-height: 1.8; margin-bottom: 18px;
+    }
+
+    /* Fact box */
+    .story-fact {
+      font-size: 12px; color: var(--accent);
+      background: rgba(0,229,160,0.07);
+      border: 1px solid rgba(0,229,160,0.18);
+      border-radius: 10px; padding: 12px 16px;
+      margin-bottom: 24px; text-align: left; line-height: 1.6;
+    }
+
+    /* Controls */
+    .story-controls {
+      display: flex; gap: 10px; justify-content: center; flex-wrap: wrap;
+      margin-bottom: 14px;
+    }
+    .story-btn {
+      padding: 10px 20px; border-radius: 10px;
+      font-size: 13px; font-weight: 700;
+      cursor: pointer; border: none;
+      transition: all 0.2s;
+    }
+    .story-btn-main {
+      background: var(--accent); color: #000;
+    }
+    .story-btn-main:hover { background: var(--accent-hover); transform: translateY(-1px); }
+    .story-btn-ghost {
+      background: transparent; color: var(--text-muted);
+      border: 1px solid var(--border);
+    }
+    .story-btn-ghost:hover { background: #1a1a2e; color: var(--text); }
+
+    /* Counter */
+    .story-counter {
+      font-size: 11px; color: var(--text-dim); margin-top: 6px;
+    }
+
+    /* ========= ANIMATIONS ========= */
+    @keyframes pulse-ring {
+      0%, 100% { opacity: 1; transform: scale(1); }
+      50% { opacity: 0.75; transform: scale(1.06); }
+    }
+
+    /* ========= BOTTOM TIMELINE ========= */
+    .timeline-bar {
+      position: fixed; bottom: 0; left: 0; right: 0;
+      background: rgba(10,10,20,0.92);
+      backdrop-filter: blur(12px);
+      border-top: 1px solid var(--border);
+      padding: 14px 28px;
+      display: flex; align-items: center; gap: 16px;
+      z-index: 400;
+    }
+    .timeline-label {
+      font-size: 10px; font-weight: 700; text-transform: uppercase;
+      letter-spacing: 0.1em; color: var(--text-muted); white-space: nowrap;
+    }
+    .timeline-dots {
+      flex: 1; display: flex; gap: 0; align-items: center;
+      position: relative;
+    }
+    .timeline-line {
+      position: absolute; top: 50%; left: 0; right: 0;
+      height: 2px; background: #1a1a2e; transform: translateY(-50%);
+    }
+    .timeline-fill {
+      position: absolute; top: 50%; left: 0;
+      height: 2px; transform: translateY(-50%);
+      background: var(--accent); transition: width 0.6s ease;
+    }
+    .timeline-node {
+      position: relative; z-index: 1;
+      flex: 1; display: flex; flex-direction: column;
+      align-items: center; gap: 6px; cursor: pointer;
+    }
+    .timeline-dot {
+      width: 14px; height: 14px; border-radius: 50%;
+      background: #1a1a2e; border: 2px solid #333;
+      transition: all 0.3s;
+    }
+    .timeline-dot.active {
+      background: var(--accent); border-color: var(--accent);
+      box-shadow: 0 0 12px rgba(0,229,160,0.5);
+    }
+    .timeline-dot.past { background: #007755; border-color: #007755; }
+    .timeline-era {
+      font-size: 9px; font-weight: 700; letter-spacing: 0.08em;
+      text-transform: uppercase; color: var(--text-dim);
+      transition: color 0.3s;
+    }
+    .timeline-node:hover .timeline-era { color: var(--accent); }
+    .timeline-temp {
+      position: absolute; bottom: -18px;
+      font-size: 9px; font-weight: 700; color: var(--text-muted);
+      white-space: nowrap;
+    }
+  </style>
+</head>
+<body>
+  <div id="root"></div>
+  <script type="text/babel">
+    const { useState, useEffect, useRef } = React;
+
+    // ===================== DATA =====================
+    const VaayuData = {
+      storySteps: [
+        {
+          era: "1950s",
+          titleKey: "story_step1_title",
+          textKey: "story_step1_text",
+          factKey: "story_step1_fact",
+          color: "#4A9EFF",
+          temp: 13.8,
+          co2: 310
+        },
+        {
+          era: "1980s",
+          titleKey: "story_step2_title",
+          textKey: "story_step2_text",
+          factKey: "story_step2_fact",
+          color: "#00E5A0",
+          temp: 14.2,
+          co2: 340
+        },
+        {
+          era: "2000s",
+          titleKey: "story_step3_title",
+          textKey: "story_step3_text",
+          factKey: "story_step3_fact",
+          color: "#F5A623",
+          temp: 14.6,
+          co2: 380
+        },
+        {
+          era: "2020",
+          titleKey: "story_step4_title",
+          textKey: "story_step4_text",
+          factKey: "story_step4_fact",
+          color: "#FF4C4C",
+          temp: 15.1,
+          co2: 417
+        },
+        {
+          era: "2040 AI",
+          titleKey: "story_step5_title",
+          textKey: "story_step5_text",
+          factKey: "story_step5_fact",
+          color: "#FF0000",
+          temp: 16.4,
+          co2: 460
+        }
+      ]
+    };
+
+    // ===================== TRANSLATIONS =====================
+    const TRANSLATIONS = {
+      en: {
+        nav_story: "Story Mode",
+        story_start: "Start Story",
+        story_prev: "← Previous",
+        story_pause: "Pause",
+        story_next: "Next →",
+        story_close: "Close",
+        story_step1_title: "1950s — The World Was Normal",
+        story_step1_text: "Global temperatures were stable. Forests were dense. Glaciers were healthy and the air was clean.",
+        story_step1_fact: "📊 Fact: CO2 levels in 1950 were 310 ppm — considered safe by scientists.",
+        story_step2_title: "1980s — Industrialization Accelerated",
+        story_step2_text: "Factories multiplied. Carbon emissions rose sharply. The first climate warnings appeared on the world stage.",
+        story_step2_fact: "📊 Fact: By 1988, NASA scientist James Hansen famously warned Congress about global warming.",
+        story_step3_title: "2000s — Warming Became Visible",
+        story_step3_text: "Arctic ice started melting. Extreme weather events became more frequent and more severe worldwide.",
+        story_step3_fact: "📊 Fact: 2005 was the hottest year on record — until the next decade broke it again.",
+        story_step4_title: "2020 — Records Were Broken",
+        story_step4_text: "2020 tied as the hottest year ever recorded. Wildfires, floods, and droughts intensified across continents.",
+        story_step4_fact: "📊 Fact: CO2 hit 417 ppm in 2020 — the highest level in 3 million years.",
+        story_step5_title: "2040 AI Forecast — If Nothing Changes",
+        story_step5_text: "VaayuDrishti AI projects a 1.5–2°C rise by 2040. Coastal cities face flooding risk. Monsoons will shift.",
+        story_step5_fact: "🚨 Action: Reduce emissions now. Every 0.1°C matters for millions of people.",
+      },
+      hi: {
+        nav_story: "कहानी मोड",
+        story_start: "कहानी शुरू करो",
+        story_prev: "← पिछला",
+        story_pause: "रुको",
+        story_next: "अगला →",
+        story_close: "बंद करो",
+        story_step1_title: "1950 का दशक — दुनिया ठीक थी",
+        story_step1_text: "तापमान स्थिर था। जंगल घने थे। ग्लेशियर स्वस्थ थे और हवा साफ थी।",
+        story_step1_fact: "📊 तथ्य: 1950 में CO2 310 ppm था — वैज्ञानिकों द्वारा सुरक्षित माना जाता था।",
+        story_step2_title: "1980 का दशक — औद्योगिकरण तेज़ हुआ",
+        story_step2_text: "कारखाने बढ़े। कार्बन उत्सर्जन बढ़ा। पहली जलवायु चेतावनियाँ वैश्विक मंच पर आईं।",
+        story_step2_fact: "📊 तथ्य: 1988 में NASA वैज्ञानिक ने कांग्रेस को ग्लोबल वार्मिंग के बारे में चेताया।",
+        story_step3_title: "2000 का दशक — बदलाव दिखने लगा",
+        story_step3_text: "आर्कटिक बर्फ पिघलने लगी। चरम मौसमी घटनाएँ ज़्यादा बार और ज़्यादा तीव्र हो गईं।",
+        story_step3_fact: "📊 तथ्य: 2005 अब तक का सबसे गर्म साल था — जब तक अगले दशक ने रिकॉर्ड तोड़ा।",
+        story_step4_title: "2020 — रिकॉर्ड टूट गए",
+        story_step4_text: "2020 अब तक का सबसे गर्म साल बना। बाढ़, सूखा और जंगल की आग महाद्वीपों में बढ़ी।",
+        story_step4_fact: "📊 तथ्य: 2020 में CO2 417 ppm — 30 लाख सालों में सबसे ज़्यादा।",
+        story_step5_title: "2040 AI भविष्यवाणी — अगर कुछ नहीं बदला",
+        story_step5_text: "VaayuDrishti AI का अनुमान: 2040 तक 1.5–2°C बढ़ेगा। तटीय शहरों पर खतरा। मानसून बदलेगा।",
+        story_step5_fact: "🚨 कार्रवाई: अभी उत्सर्जन कम करो। हर 0.1°C करोड़ों लोगों के लिए मायने रखता है।",
+      },
+      hinglish: {
+        nav_story: "Kahani Mode",
+        story_start: "▶ Kahani Shuru Karo",
+        story_prev: "← Pichla",
+        story_pause: "Ruko",
+        story_next: "Agla →",
+        story_close: "Band Karo",
+        story_step1_title: "1950s — Duniya Normal Thi",
+        story_step1_text: "Temperature stable tha. Jangal ghane the. Glaciers theek the aur hawa saaf thi.",
+        story_step1_fact: "📊 Fact: 1950 mein CO2 310 ppm tha — safe tha.",
+        story_step2_title: "1980s — Factories Badhne Lagi",
+        story_step2_text: "Carbon emissions badhe. Pehli climate warnings world stage par aayi.",
+        story_step2_fact: "📊 Fact: 1988 mein NASA scientist ne global warming ki warning di thi.",
+        story_step3_title: "2000s — Badlaav Dikhne Laga",
+        story_step3_text: "Arctic ki barf pighalane lagi. Extreme weather events zyada badi aur zyada tez ho gayi.",
+        story_step3_fact: "📊 Fact: 2005 sabse garam saal tha — jab tak agli decade ne record toda.",
+        story_step4_title: "2020 — Record Toot Gaye",
+        story_step4_text: "2020 mein record breaking heat. Floods, droughts, wildfires badhe across continents.",
+        story_step4_fact: "📊 Fact: CO2 417 ppm — 30 lakh saalon mein sabse zyada.",
+        story_step5_title: "2040 AI Forecast — Agar Nahi Ruke",
+        story_step5_text: "VaayuDrishti AI projection: 2040 tak 1.5–2°C rise. Coastal cities ko khatra.",
+        story_step5_fact: "🚨 Karo kuch: Emissions abhi kam karo. Har 0.1°C matters.",
+      }
+    };
+
+    const tr = (lang, key) => {
+      const bundle = TRANSLATIONS[lang] || TRANSLATIONS.en;
+      return bundle[key] || TRANSLATIONS.en[key] || key;
+    };
+
+    // ===================== WIND WAVE SVG =====================
+    function WindWaveSVG({ size = 60, color = "#00E5A0" }) {
+      return (
+        <svg width={size} height={size} viewBox="0 0 60 60" fill="none">
+          <circle cx="30" cy="30" r="28" stroke={color} strokeWidth="1.5" strokeDasharray="4 3" opacity="0.4" />
+          <circle cx="30" cy="30" r="18" stroke={color} strokeWidth="1.5" opacity="0.6" />
+          <path d="M18 30 Q24 22, 30 30 Q36 38, 42 30" stroke={color} strokeWidth="2.5" strokeLinecap="round" fill="none" />
+          <path d="M15 36 Q21 28, 27 36 Q33 44, 39 36" stroke={color} strokeWidth="1.5" strokeLinecap="round" fill="none" opacity="0.5" />
+          <path d="M21 24 Q27 16, 33 24 Q39 32, 45 24" stroke={color} strokeWidth="1.5" strokeLinecap="round" fill="none" opacity="0.5" />
+          <circle cx="30" cy="30" r="3" fill={color} />
+        </svg>
+      );
+    }
+
+    // ===================== STORY MODE COMPONENT =====================
+    function StoryMode({ lang }) {
+      const t = (key) => tr(lang, key);
+
+      const [started, setStarted] = useState(false);
+      const [step, setStep] = useState(0);
+      const [paused, setPaused] = useState(false);
+      const timerRef = useRef(null);
+
+      const steps = VaayuData.storySteps;
+      const current = steps[step];
+
+      const next = () => {
+        if (step < steps.length - 1) setStep(s => s + 1);
+        else { setStarted(false); setStep(0); }
+      };
+      const prev = () => { if (step > 0) setStep(s => s - 1); };
+
+      useEffect(() => {
+        if (!started || paused) { clearTimeout(timerRef.current); return; }
+        timerRef.current = setTimeout(next, 5000);
+        return () => clearTimeout(timerRef.current);
+      }, [started, step, paused]);
+
+      const progress = ((step + 1) / steps.length) * 100;
+
+      // ---- SPLASH SCREEN ----
+      if (!started) {
+        return (
+          <div className="splash">
+            <div className="splash-icon-wrap">
+              <WindWaveSVG size={68} color="#00E5A0" />
+            </div>
+            <div>
+              <h1 className="splash-title">
+                वायुदृष्टि<br />
+                <span style={{ color: '#00E5A0', fontSize: 20, fontWeight: 700 }}>
+                  {t('nav_story')}
+                </span>
+              </h1>
+            </div>
+            <p className="splash-subtitle">
+              Climate change ki kahani — 1950s se 2040 AI forecast tak.
+              Har step par animation aur real climate facts.
+            </p>
+            <div className="splash-steps-preview">
+              {steps.map((s, i) => (
+                <span key={i} className="era-chip" style={{ borderColor: s.color + '55', color: s.color }}>
+                  {s.era}
+                </span>
+              ))}
+            </div>
+            <button className="btn-start" onClick={() => setStarted(true)}>
+              ▶ {t('story_start')}
+            </button>
+            <p style={{ fontSize: 11, color: '#333', marginTop: 8 }}>Auto-advances every 5 seconds</p>
+          </div>
+        );
+      }
+
+      // ---- STORY CARD ----
+      return (
+        <>
+          <div className="story-overlay">
+            <div className="story-card">
+              {/* Step dots */}
+              <div className="story-step-indicator">
+                {steps.map((_, i) => (
+                  <div
+                    key={i}
+                    className={`story-dot ${i <= step ? 'active' : ''}`}
+                    onClick={() => setStep(i)}
+                    title={steps[i].era}
+                  />
+                ))}
+              </div>
+
+              {/* Progress bar */}
+              <div className="story-progress">
+                <div
+                  className="story-progress-fill"
+                  style={{ width: `${progress}%`, background: paused ? '#F5A623' : '#00E5A0' }}
+                />
+              </div>
+
+              {/* Era badge */}
+              <div className="story-era" style={{ borderColor: current.color + '55', color: current.color }}>
+                {current.era}
+              </div>
+
+              {/* Title */}
+              <h2 className="story-title" style={{ color: current.color }}>
+                {t(current.titleKey)}
+              </h2>
+
+              {/* Visual Globe */}
+              <div className="story-map-bg">
+                <div
+                  className="story-map-inner"
+                  style={{ background: `radial-gradient(circle, ${current.color}22 0%, #050510 70%)` }}
+                >
+                  <div
+                    className="story-orb"
+                    style={{
+                      background: `radial-gradient(circle at 35% 30%, ${current.color}99, ${current.color}22)`,
+                      boxShadow: `0 0 40px ${current.color}44`
+                    }}
+                  />
+                  <div className="story-temp-badge" style={{ color: current.color }}>
+                    🌡 {current.temp}°C global avg
+                  </div>
+                  <div className="story-co2-badge">
+                    💨 CO₂: {current.co2} ppm
+                  </div>
+                </div>
+              </div>
+
+              {/* Text */}
+              <p className="story-text">{t(current.textKey)}</p>
+
+              {/* Fact */}
+              <div className="story-fact">{t(current.factKey)}</div>
+
+              {/* Controls */}
+              <div className="story-controls">
+                {step > 0 && (
+                  <button className="story-btn story-btn-ghost" onClick={prev}>
+                    {t('story_prev')}
+                  </button>
+                )}
+                <button
+                  className="story-btn story-btn-ghost"
+                  onClick={() => setPaused(p => !p)}
+                >
+                  {paused ? '▶ Resume' : '⏸ ' + t('story_pause')}
+                </button>
+                <button className="story-btn story-btn-main" onClick={next}>
+                  {step < steps.length - 1 ? t('story_next') : '🔄 Restart'}
+                </button>
+                <button
+                  className="story-btn story-btn-ghost"
+                  onClick={() => { setStarted(false); setStep(0); }}
+                >
+                  {t('story_close')}
+                </button>
+              </div>
+
+              {/* Counter */}
+              <p className="story-counter">
+                Step {step + 1} of {steps.length} &nbsp;•&nbsp;
+                {paused ? '⏸ Paused' : '▶ Auto-advancing every 5s'}
+              </p>
+            </div>
+          </div>
+
+          {/* Timeline bar at bottom */}
+          <div className="timeline-bar">
+            <span className="timeline-label">Timeline</span>
+            <div className="timeline-dots">
+              <div className="timeline-line" />
+              <div
+                className="timeline-fill"
+                style={{ width: `${(step / (steps.length - 1)) * 100}%` }}
+              />
+              {steps.map((s, i) => (
+                <div className="timeline-node" key={i} onClick={() => setStep(i)}>
+                  <div className={`timeline-dot ${i === step ? 'active' : i < step ? 'past' : ''}`} />
+                  <span className="timeline-era" style={{ color: i <= step ? s.color : undefined }}>
+                    {s.era}
+                  </span>
+                  <span className="timeline-temp">{s.temp}°C</span>
+                </div>
+              ))}
+            </div>
+          </div>
+        </>
+      );
+    }
+
+    // ===================== APP ROOT =====================
+    function App() {
+      const [lang, setLang] = useState('en');
+
+      return (
+        <>
+          {/* Top bar */}
+          <div className="topbar">
+            <div className="topbar-brand">
+              <WindWaveSVG size={26} color="#00E5A0" />
+              VaayuDrishti
+              <span className="topbar-badge">Kahani Mode</span>
+            </div>
+            <div className="lang-toggle">
+              {['en', 'hi', 'hinglish'].map(l => (
+                <button
+                  key={l}
+                  className={`lang-btn ${lang === l ? 'active' : ''}`}
+                  onClick={() => setLang(l)}
+                >
+                  {l === 'en' ? '🇺🇸 EN' : l === 'hi' ? '🇮🇳 HI' : '🌐 HL'}
+                </button>
+              ))}
+            </div>
+          </div>
+
+          {/* Story Mode */}
+          <StoryMode lang={lang} />
+        </>
+      );
+    }
+
+    ReactDOM.createRoot(document.getElementById('root')).render(<App />);
+  </script>
+</body>
+</html>
